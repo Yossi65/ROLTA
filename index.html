@@ -2,774 +2,640 @@
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>רולטה אולטימטיבית - הכל כלול</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>רולטה פרו - גרסה מתוקנת ומדויקת</title>
     <style>
         :root {
-            --wheel-size: 300px;
-            --wheel-border: 12px;
-            --plate-color: #222;
-            --gold: #f1c40f;
-            --felt-color: #1e8449;
-            --red-color: #c0392b;
-            --black-color: #2c3e50;
-            --green-color: #27ae60;
+            --primary: #e74c3c;
+            --dark: #121212;
+            --panel: #1e1e1e;
+            --gold: #ffc107;
+            --green: #27ae60;
+            --text: #ffffff;
+            --felt: #0f4d22;
         }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #121212;
-            color: white;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-            padding-bottom: 60px;
-            user-select: none;
-            overflow-x: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--dark);
+            color: var(--text);
+            margin: 0; padding: 0;
+            display: flex; flex-direction: column;
+            height: 100vh; overflow: hidden;
+            transition: background 0.5s;
         }
 
-        h1 {
-            color: var(--gold);
-            text-shadow: 0 0 15px rgba(241, 196, 15, 0.6);
-            margin: 15px 0;
-            font-size: 2rem;
-            letter-spacing: 2px;
-            text-transform: uppercase;
+        /* --- מצב סיבוב (פוקוס) --- */
+        body.is-spinning .top-section { height: 100vh; justify-content: center; background: radial-gradient(circle, #333 0%, #000 90%); }
+        body.is-spinning .wheel-wrapper { transform: scale(1.4); margin-top: -50px; }
+        body.is-spinning .scrollable-content, body.is-spinning footer, body.is-spinning header, body.is-spinning .tools-btn {
+            opacity: 0; pointer-events: none; transition: opacity 0.3s;
         }
 
-        /* --- Canvas --- */
-        #confetti-canvas {
-            position: fixed; top: 0; left: 0;
-            width: 100%; height: 100%;
-            pointer-events: none; z-index: 100;
+        /* --- חלק עליון --- */
+        .top-section {
+            flex-shrink: 0; background: radial-gradient(circle, #2a2a2a 0%, #121212 90%);
+            padding-bottom: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); z-index: 20;
+            transition: all 0.5s cubic-bezier(0.2, 0.8, 0.2, 1); display: flex; flex-direction: column;
         }
 
-        /* --- Layout Containers --- */
-        .main-layout {
-            display: flex;
-            flex-wrap: wrap;
-            justify-content: center;
-            align-items: flex-start;
-            gap: 20px;
-            width: 100%;
-            max-width: 1200px;
+        header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 8px 15px; background: rgba(0,0,0,0.3); border-bottom: 1px solid #333;
+            transition: opacity 0.3s;
         }
 
-        .left-panel { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 10px; }
-        .center-panel { flex: 2; display: flex; flex-direction: column; align-items: center; }
-        
-        /* --- Dashboard --- */
-        .dashboard {
-            display: flex; gap: 10px; margin-bottom: 10px;
-            width: 95%; max-width: 800px; justify-content: space-between;
-            background: #1f1f1f; padding: 12px; border-radius: 12px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.5); border: 1px solid #333;
-        }
+        .balance-box { font-size: 1.1rem; font-weight: bold; color: var(--gold); display: flex; align-items: center; gap: 10px; }
+        .add-btn { background: var(--green); border: none; color: white; border-radius: 50%; width: 24px; height: 24px; font-size: 18px; cursor: pointer; }
+        .bet-info { font-size: 0.9rem; color: #aaa; }
+        .win-display { color: var(--green); font-weight: bold; font-size: 1rem; min-width: 50px; text-align: left; }
 
-        .stat-box {
-            flex: 1; text-align: center;
-            background: rgba(0,0,0,0.3); padding: 5px; border-radius: 8px;
+        .wheel-wrapper {
+            display: flex; justify-content: center; align-items: center;
+            padding-top: 10px; position: relative; transition: transform 0.5s;
         }
-        .stat-label { font-size: 0.75rem; color: #888; margin-bottom: 2px; }
-        .stat-value { font-size: 1.1rem; font-weight: bold; direction: ltr; }
-        .val-balance { color: var(--gold); }
-        .val-won { color: #2ecc71; }
-        .val-lost { color: #e74c3c; }
+        .history-strip { position: absolute; top: 5px; right: 10px; left: 10px; display: flex; justify-content: center; gap: 4px; pointer-events: none; }
+        .hist-dot { width: 18px; height: 18px; border-radius: 50%; font-size: 10px; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,0.3); font-weight: bold; }
 
-        /* --- Hot & Cold Stats --- */
-        .stats-card {
-            background: #1f1f1f; border-radius: 10px; padding: 15px;
-            border: 1px solid #333; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-            width: 90%; margin: 0 auto;
-        }
-        .stats-title { font-size: 1rem; color: #aaa; margin-bottom: 10px; text-align: center; border-bottom: 1px solid #333; padding-bottom: 5px; }
-        .hot-row, .cold-row { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 8px; }
-        .stat-icon { font-size: 1.2rem; }
-        .stat-num-circle {
-            width: 28px; height: 28px; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            font-weight: bold; font-size: 0.8rem; border: 1px solid rgba(255,255,255,0.2);
-        }
-
-        /* --- Wheel --- */
         .game-container {
-            position: relative;
-            width: var(--wheel-size); height: var(--wheel-size);
-            border-radius: 50%; border: var(--wheel-border) solid #4a2c2c;
-            background: var(--plate-color);
-            margin: 0 auto 20px auto;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+            width: 180px; height: 180px; border-radius: 50%; border: 6px solid #4e342e; position: relative;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.6);
         }
-        .wheel {
-            width: 100%; height: 100%; border-radius: 50%; position: relative;
-            transition: transform 4s cubic-bezier(0.15, 0.70, 0.10, 1.0); overflow: hidden;
-        }
-        .ball-container {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            border-radius: 50%; pointer-events: none; z-index: 5;
-            transition: transform 4s cubic-bezier(0.15, 0.70, 0.10, 1.0);
-        }
-        .ball {
-            position: absolute; top: 25px; left: 50%; width: 14px; height: 14px;
-            background: radial-gradient(circle at 30% 30%, #fff, #bbb);
-            border-radius: 50%; transform: translateX(-50%); box-shadow: 0 0 5px white;
-        }
-        .marker {
-            position: absolute; top: -18px; left: 50%; transform: translateX(-50%);
-            width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent;
-            border-top: 22px solid var(--gold); z-index: 20; filter: drop-shadow(0 2px 2px black);
-        }
-        .center-hub {
-            position: absolute; top: 50%; left: 50%; width: 45px; height: 45px;
-            background: radial-gradient(circle at 30% 30%, var(--gold), #b8860b);
-            border-radius: 50%; transform: translate(-50%, -50%); z-index: 10;
-            box-shadow: 0 0 10px black;
-        }
-
-        /* --- History Bar --- */
-        .history-bar {
-            display: flex; gap: 5px; height: 45px; background: rgba(0,0,0,0.5);
-            padding: 0 15px; border-radius: 25px; margin-bottom: 15px;
-            align-items: center; justify-content: center; border: 1px solid #444;
-            min-width: 300px;
-        }
-        .hist-bubble {
-            width: 32px; height: 32px; border-radius: 50%;
-            display: flex; align-items: center; justify-content: center;
-            font-weight: bold; font-size: 0.85rem; border: 2px solid rgba(255,255,255,0.1);
-            animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-        }
-        @keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }
-
-        /* --- Controls & Chips --- */
-        .actions-row {
-            display: flex; flex-wrap: wrap; gap: 15px; justify-content: center; margin-bottom: 15px; width: 100%;
-        }
+        .wheel { width: 100%; height: 100%; border-radius: 50%; transition: transform 4s cubic-bezier(0.1, 0.7, 0.1, 1); }
         
-        .chip-selector {
-            display: flex; gap: 8px; background: #222; padding: 8px 15px; border-radius: 50px; border: 1px solid #444;
+        .ball-container { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            border-radius: 50%; pointer-events: none; 
+            /* הכדור מסתובב יחד עם הגלגל */
+            transition: transform 4s cubic-bezier(0.1, 0.7, 0.1, 1);
         }
-        .chip-btn {
-            width: 42px; height: 42px; border-radius: 50%; border: 3px dashed rgba(255,255,255,0.7);
-            display: flex; align-items: center; justify-content: center;
-            font-weight: bold; font-size: 0.8rem; color: #000; cursor: pointer;
-            transition: transform 0.2s; position: relative;
+        .ball { 
+            position: absolute; top: 5px; left: 50%; width: 12px; height: 12px; 
+            background: radial-gradient(circle at 30% 30%, #fff, #999); 
+            border-radius: 50%; transform: translateX(-50%); 
+            box-shadow: 0 0 5px white; 
         }
-        .chip-btn:hover { transform: translateY(-3px); }
-        .chip-btn.active { transform: scale(1.15); border-style: solid; box-shadow: 0 0 10px white; z-index: 2; }
-        
-        .chip-0-5 { background: radial-gradient(#3498db, #2980b9); color: white; }
-        .chip-1 { background: radial-gradient(#ecf0f1, #bdc3c7); }
-        .chip-2-5 { background: radial-gradient(#9b59b6, #8e44ad); color: white; }
-        .chip-5 { background: radial-gradient(#e74c3c, #c0392b); color: white; }
-        .chip-10 { background: radial-gradient(#34495e, #2c3e50); color: white; border-color: var(--gold); }
 
-        .pro-controls { display: flex; gap: 5px; }
-        .pro-btn {
-            background: #333; color: white; border: 1px solid #555; border-radius: 6px;
-            padding: 5px 12px; font-size: 0.8rem; cursor: pointer;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            min-width: 55px; height: 50px; transition: 0.2s;
-        }
-        .pro-btn:hover { background: #444; }
-        .pro-btn:active { transform: scale(0.95); }
-        .pro-btn span { font-size: 1.2rem; }
+        .marker { position: absolute; top: -10px; left: 50%; transform: translateX(-50%); border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 14px solid var(--gold); z-index: 10; filter: drop-shadow(0 2px 2px black); }
+        .center-hub { position: absolute; top: 50%; left: 50%; width: 24px; height: 24px; background: var(--gold); border-radius: 50%; transform: translate(-50%, -50%); box-shadow: 0 0 8px black; z-index: 5; }
 
-        /* --- Table --- */
-        .table-wrapper { overflow-x: auto; width: 98%; max-width: 850px; padding: 5px; }
-        .betting-table {
+        /* היילייט על המספר הזוכה בגלגל */
+        .wheel-winner-highlight {
+            box-shadow: inset 0 0 0 3px var(--gold);
+            z-index: 10;
+        }
+
+        /* --- אזור הטבלה החכם --- */
+        .scrollable-content {
+            flex: 1; overflow-y: auto; background: #111; padding: 10px; padding-bottom: 120px;
+            display: flex; flex-direction: column; align-items: center; transition: opacity 0.3s;
+            scroll-behavior: smooth;
+        }
+
+        .smart-table {
             display: grid;
-            grid-template-columns: 50px repeat(12, 1fr) 40px; 
-            grid-template-rows: repeat(3, 50px) 45px 45px;
-            gap: 3px; background-color: var(--felt-color);
-            border: 10px solid #5d4037; border-radius: 8px; padding: 10px;
-            min-width: 650px; direction: ltr;
-            box-shadow: inset 0 0 50px rgba(0,0,0,0.5);
+            direction: ltr; /* חשוב מאוד לסדר המספרים */
+            grid-template-columns: 1fr 25px 1fr 25px 1fr;
+            width: 100%; max-width: 400px;
+            background: var(--felt); padding: 8px; border-radius: 8px; border: 4px solid #3e2723;
         }
 
-        .b-cell {
-            display: flex; align-items: center; justify-content: center;
-            border: 1px solid rgba(255,255,255,0.15);
-            font-weight: bold; color: white; cursor: pointer; position: relative; font-size: 14px;
-            transition: background 0.1s;
+        .cell {
+            height: 50px; display: flex; align-items: center; justify-content: center;
+            font-weight: bold; color: white; border: 1px solid rgba(255,255,255,0.15);
+            font-size: 18px; border-radius: 4px; position: relative;
         }
-        .b-cell:hover { background-color: rgba(255,255,255,0.1); }
-        .b-cell:active { transform: scale(0.96); }
+        .cell:active { transform: scale(0.95); filter: brightness(1.2); }
+        .cell.winner-highlight { background-color: var(--gold) !important; color: black !important; box-shadow: 0 0 20px var(--gold); z-index: 10; border-color: white; animation: pulse-win 0.6s infinite alternate; }
+        @keyframes pulse-win { from { transform: scale(1); } to { transform: scale(1.1); } }
 
-        .bg-red { background-color: var(--red-color); }
-        .bg-black { background-color: var(--black-color); }
-        .bg-green { background-color: var(--green-color); }
-        .bg-none { background-color: transparent; border: 1px solid rgba(255,255,255,0.3); }
+        .split-v { background: rgba(255,255,255,0.08); cursor: pointer; transition: 0.2s; position: relative; z-index: 5;}
+        .split-h { height: 25px; grid-column: span 1; background: rgba(255,255,255,0.08); cursor: pointer; position: relative; z-index: 5;}
+        .corner { height: 25px; width: 25px; background: rgba(255,255,255,0.15); cursor: pointer; border-radius: 50%; border: 1px solid rgba(255,255,255,0.1); position: relative; z-index: 5; }
 
-        /* Grid Placement */
-        .cell-zero { grid-column: 1; grid-row: 1 / span 3; border-radius: 4px 0 0 4px; font-size: 1.2rem; }
-        .col-bet { grid-column: 14; writing-mode: vertical-rl; transform: rotate(180deg); font-size: 11px; }
-        .dozen-bet { grid-row: 4; font-size: 12px; }
-        .dozen-1 { grid-column: 2 / span 4; } .dozen-2 { grid-column: 6 / span 4; } .dozen-3 { grid-column: 10 / span 4; }
-        .outside-bet { grid-row: 5; font-size: 12px; text-transform: uppercase; }
-        .ob-1-18 { grid-column: 2 / span 2; } .ob-even { grid-column: 4 / span 2; } .ob-red { grid-column: 6 / span 2; background: var(--red-color); }
-        .ob-black { grid-column: 8 / span 2; background: var(--black-color); } .ob-odd { grid-column: 10 / span 2; } .ob-19-36 { grid-column: 12 / span 2; }
+        .bg-red { background: var(--primary); }
+        .bg-blk { background: #2c3e50; }
+        .bg-grn { background: var(--green); }
+        .bg-spec { background: transparent; border: 1px solid rgba(255,255,255,0.4); font-size: 12px; }
 
-        /* --- 3D Chip on Board --- */
+        .cell-0 { grid-column: 1 / span 5; height: 40px; margin-bottom: 4px; }
+        .spacer-row { grid-column: 1 / span 5; height: 10px; }
+
+        .row-bet-group { grid-column: 1 / span 5; display: flex; gap: 4px; margin-bottom: 10px; }
+        .row-bet-group .cell { flex: 1; height: 45px; font-size: 11px; }
+
+        /* ז'יטון על הלוח */
         .chip-on-board {
-            position: absolute; width: 26px; height: 26px;
-            background: radial-gradient(circle at 30% 30%, #f1c40f, #f39c12);
+            position: absolute; width: 24px; height: 24px;
+            background: radial-gradient(circle at 30% 30%, var(--gold), #f39c12); 
             border: 2px dashed white; border-radius: 50%;
             color: black; font-size: 9px; display: flex; align-items: center; justify-content: center;
-            font-weight: bold; pointer-events: none; z-index: 5;
-            box-shadow: 0 3px 5px rgba(0,0,0,0.5), inset 0 0 5px rgba(255,255,255,0.5);
-            animation: dropChip 0.2s ease-out;
+            font-weight: bold; box-shadow: 0 4px 5px rgba(0,0,0,0.8); pointer-events: none;
+            z-index: 50; /* חייב להיות גבוה */
+            top: 50%; left: 50%; transform: translate(-50%, -50%);
         }
-        @keyframes dropChip { from { transform: scale(1.5) translateY(-20px); opacity: 0; } to { transform: scale(1) translateY(0); opacity: 1; } }
 
-        /* --- Messages & Modals --- */
-        .message { margin-top: 15px; height: 40px; text-align: center; font-weight: bold; font-size: 1.3rem; z-index: 50; }
-        .win-text { color: #2ecc71; text-shadow: 0 0 10px black; animation: pulse 0.5s infinite alternate; }
-        @keyframes pulse { from { transform: scale(1); } to { transform: scale(1.1); } }
+        /* --- חלק תחתון --- */
+        footer {
+            position: fixed; bottom: 0; left: 0; width: 100%;
+            background: rgba(30, 30, 30, 0.98); backdrop-filter: blur(5px);
+            border-top: 1px solid #444; padding: 10px 15px; padding-bottom: max(10px, env(safe-area-inset-bottom));
+            display: flex; flex-direction: column; gap: 10px; z-index: 30; transition: opacity 0.3s;
+        }
 
-        .spin-btn-container { margin-top: 20px; display: flex; gap: 15px; }
-        .btn-spin {
-            background: linear-gradient(to bottom, #e74c3c, #c0392b); color: white;
-            padding: 12px 50px; font-size: 1.5rem; border-radius: 50px; border: none;
-            cursor: pointer; box-shadow: 0 5px 0 #922b21; transition: 0.1s; font-weight: bold;
+        .chip-rack { display: flex; justify-content: center; gap: 10px; }
+        .chip {
+            width: 45px; height: 45px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-weight: bold; font-size: 12px; color: #000;
+            border: 2px solid transparent; transition: transform 0.1s;
         }
-        .btn-spin:active { transform: translateY(4px); box-shadow: none; }
-        .btn-spin:disabled { background: #555; box-shadow: none; cursor: not-allowed; }
-        .btn-clear { background: #7f8c8d; border: none; padding: 10px 20px; border-radius: 50px; color: white; cursor: pointer; font-weight: bold; }
+        .chip.active { transform: translateY(-8px); border-color: white; box-shadow: 0 0 10px white; }
+        .c-1 { background: #ecf0f1; } .c-5 { background: #e74c3c; color:white; } 
+        .c-10 { background: #3498db; color:white; } .c-50 { background: #f1c40f; }
 
-        /* Modal */
-        .modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85); z-index: 200;
-            display: none; align-items: center; justify-content: center;
+        .actions { display: flex; gap: 10px; height: 50px; }
+        .btn { border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: white; font-size: 1rem; }
+        .btn-spin { flex: 2; background: linear-gradient(to right, #e74c3c, #c0392b); font-size: 1.3rem; box-shadow: 0 4px 0 #7c261e; }
+        .btn-spin:active { transform: translateY(3px); box-shadow: none; }
+        .btn-spin:disabled { background: #555; box-shadow: none; opacity: 0.7; }
+        .btn-undo { width: 50px; background: #555; font-size: 1.2rem; }
+        .btn-clear { width: 50px; background: #444; font-size: 0.9rem; }
+        
+        .tools-btn {
+            position: absolute; top: 10px; left: 10px; z-index: 20;
+            background: rgba(0,0,0,0.5); color: white; border: 1px solid #555;
+            border-radius: 20px; padding: 5px 10px; font-size: 12px; transition: opacity 0.3s;
         }
-        .modal {
-            background: #2c3e50; padding: 30px; border-radius: 15px; text-align: center;
-            border: 2px solid var(--gold); box-shadow: 0 0 30px rgba(241, 196, 15, 0.3);
-            animation: popIn 0.4s;
+
+        #confetti-canvas { position: fixed; top: 0; left: 0; pointer-events: none; z-index: 100; }
+        .toast {
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.85); color: white; padding: 15px 25px;
+            border-radius: 30px; font-weight: bold; opacity: 0; pointer-events: none;
+            transition: opacity 0.3s; z-index: 100; text-align: center; font-size: 1.2rem; border: 1px solid var(--gold);
         }
-        .modal h2 { color: var(--gold); margin-top: 0; }
-        .btn-rescue {
-            background: #27ae60; color: white; padding: 15px 30px; font-size: 1.2rem;
-            border: none; border-radius: 10px; cursor: pointer; font-weight: bold; margin-top: 20px;
-            box-shadow: 0 5px 0 #1e8449;
+        .overlay {
+            position: fixed; top:0; left:0; width:100%; height:100%;
+            background: rgba(0,0,0,0.9); z-index: 90; display: none; align-items: center; justify-content: center;
         }
-        .btn-rescue:active { transform: translateY(5px); box-shadow: none; }
+        .modal { background: #222; padding: 30px; border-radius: 15px; border: 2px solid var(--gold); text-align: center; width: 80%; }
 
     </style>
 </head>
 <body>
 
     <canvas id="confetti-canvas"></canvas>
+    <div class="toast" id="toast">הודעה</div>
 
-    <div class="modal-overlay" id="bankruptModal">
+    <div class="overlay" id="bankruptModal">
         <div class="modal">
-            <h2>נגמר לך הכסף! 😱</h2>
-            <p>אל דאגה, הבית מזמין אותך להמשיך לשחק.</p>
-            <button class="btn-rescue" onclick="rescueFunds()">קבל 500$ מתנה 💰</button>
+            <h2 style="color:var(--gold)">נגמר הכסף! 😱</h2>
+            <p>הבית מזמין אותך לעוד סיבוב.</p>
+            <button class="btn" style="background:var(--green); width:100%; padding:15px; margin-top:15px;" onclick="rescueFunds()">קבל 1000$ מתנה</button>
         </div>
     </div>
 
-    <h1>ROYAL ISRAEL CASINO</h1>
-
-    <div class="main-layout">
-        
-        <div class="left-panel">
-            <div class="stats-card">
-                <div class="stats-title">מספרים חמים 🔥</div>
-                <div class="hot-row" id="hotList">
-                    <span style="font-size: 0.8rem; color:#666;">אין נתונים עדיין</span>
-                </div>
+    <div class="top-section" id="topSection">
+        <header>
+            <div class="balance-box">
+                <span id="balanceDisplay">1000</span>$
+                <button class="add-btn" onclick="addMoney()">+</button>
             </div>
-            <div class="stats-card">
-                <div class="stats-title">מספרים קרים ❄️</div>
-                <div class="cold-row" id="coldList">
-                    <span style="font-size: 0.8rem; color:#666;">אין נתונים עדיין</span>
-                </div>
-            </div>
-        </div>
+            <div class="bet-info">הימור: <span id="betDisplay">0</span></div>
+            <div class="win-display" id="winDisplay"></div>
+        </header>
 
-        <div class="center-panel">
-            
-            <div class="history-bar" id="historyBar">
-                <span style="color: #aaa; margin-left: 10px; font-size: 0.9rem;">היסטוריה:</span>
-            </div>
+        <button class="tools-btn" onclick="toggleTurbo()">⚡ טורבו</button>
 
-            <div class="dashboard">
-                <div class="stat-box">
-                    <div class="stat-label">קופה</div>
-                    <div class="stat-value val-balance" id="balanceDisplay">--.--$</div>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-label">הימור נוכחי</div>
-                    <div class="stat-value" id="currentBetDisplay">0.00$</div>
-                </div>
-                <div class="stat-box">
-                    <div class="stat-label">רווחים</div>
-                    <div class="stat-value val-won" id="totalWonDisplay">0.00$</div>
-                </div>
-            </div>
-
-            <div class="actions-row">
-                <div class="pro-controls">
-                    <div class="pro-btn" onclick="undoBet()" title="בטל פעולה אחרונה"><span>↩️</span><small>בטל</small></div>
-                    <div class="pro-btn" onclick="doubleBet()" title="הכפל הכל"><span>✖️2</span><small>הכפל</small></div>
-                    <div class="pro-btn" onclick="rebet()" title="חזור על הימור קודם"><span>🔄</span><small>חזור</small></div>
-                    <div class="pro-btn" onclick="betNeighbors()" title="המר על שכנים של המספר האחרון"><span>🏘️</span><small>שכנים</small></div>
-                </div>
-
-                <div class="chip-selector">
-                    <div class="chip-btn chip-0-5" onclick="selectChip(0.5)">0.5</div>
-                    <div class="chip-btn chip-1 active" onclick="selectChip(1)">1</div>
-                    <div class="chip-btn chip-2-5" onclick="selectChip(2.5)">2.5</div>
-                    <div class="chip-btn chip-5" onclick="selectChip(5)">5</div>
-                    <div class="chip-btn chip-10" onclick="selectChip(10)">10</div>
-                </div>
-            </div>
-
+        <div class="wheel-wrapper">
+            <div class="history-strip" id="historyStrip"></div>
             <div class="game-container">
                 <div class="marker"></div>
                 <div class="wheel" id="wheel"></div>
                 <div class="center-hub"></div>
-                <div class="ball-container" id="ballContainer"><div class="ball"></div></div>
-            </div>
-
-            <div class="message" id="messageBox">בחר ז'יטון והנח על השולחן</div>
-
-            <div class="table-wrapper">
-                <div class="betting-table" id="bettingTable">
-                    <div class="b-cell bg-green cell-zero" data-bet="0" onclick="placeBet('0')">0</div>
-                    <div class="b-cell bg-none col-bet" style="grid-row: 1" data-bet="col3" onclick="placeBet('col3')">2 to 1</div>
-                    <div class="b-cell bg-none col-bet" style="grid-row: 2" data-bet="col2" onclick="placeBet('col2')">2 to 1</div>
-                    <div class="b-cell bg-none col-bet" style="grid-row: 3" data-bet="col1" onclick="placeBet('col1')">2 to 1</div>
-                    <div class="b-cell bg-none dozen-bet dozen-1" data-bet="1st12" onclick="placeBet('1st12')">1st 12</div>
-                    <div class="b-cell bg-none dozen-bet dozen-2" data-bet="2nd12" onclick="placeBet('2nd12')">2nd 12</div>
-                    <div class="b-cell bg-none dozen-bet dozen-3" data-bet="3rd12" onclick="placeBet('3rd12')">3rd 12</div>
-                    <div class="b-cell bg-none outside-bet ob-1-18" data-bet="1-18" onclick="placeBet('1-18')">1-18</div>
-                    <div class="b-cell bg-none outside-bet ob-even" data-bet="even" onclick="placeBet('even')">ZUGI</div>
-                    <div class="b-cell bg-red outside-bet ob-red" data-bet="red" onclick="placeBet('red')">RED</div>
-                    <div class="b-cell bg-black outside-bet ob-black" data-bet="black" onclick="placeBet('black')">BLACK</div>
-                    <div class="b-cell bg-none outside-bet ob-odd" data-bet="odd" onclick="placeBet('odd')">I-ZUGI</div>
-                    <div class="b-cell bg-none outside-bet ob-19-36" data-bet="19-36" onclick="placeBet('19-36')">19-36</div>
+                <div class="ball-container" id="ballContainer">
+                    <div class="ball"></div>
                 </div>
-            </div>
-
-            <div class="spin-btn-container">
-                <button class="btn-clear" onclick="clearBets()" id="clearBtn">נקה הכל</button>
-                <button class="btn-spin" onclick="spin()" id="spinBtn">סובב את הגלגל!</button>
             </div>
         </div>
     </div>
 
+    <div class="scrollable-content" id="scrollContainer">
+        <div class="smart-table" id="smartTable">
+            <div class="cell bg-grn cell-0" id="cell-0" onclick="placeBet('0')">0</div>
+            </div>
+    </div>
+
+    <footer>
+        <div class="chip-rack">
+            <div class="chip c-1 active" onclick="selectChip(1)">1</div>
+            <div class="chip c-5" onclick="selectChip(5)">5</div>
+            <div class="chip c-10" onclick="selectChip(10)">10</div>
+            <div class="chip c-50" onclick="selectChip(50)">50</div>
+        </div>
+        <div class="actions">
+            <button class="btn btn-undo" onclick="undoBet()">↩</button>
+            <button class="btn btn-spin" id="spinBtn" onclick="spin()">סובב!</button>
+            <button class="btn btn-clear" onclick="clearBets()">🗑️</button>
+        </div>
+    </footer>
+
     <script>
-        /* --- Confetti Logic --- */
-        const canvas = document.getElementById('confetti-canvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
-        let confetti = [];
-        const confettiColors = ['#f1c40f', '#e74c3c', '#2ecc71', '#3498db', '#9b59b6'];
-
-        function createConfetti() {
-            for (let i = 0; i < 200; i++) {
-                confetti.push({
-                    x: Math.random() * canvas.width, y: Math.random() * canvas.height - canvas.height,
-                    color: confettiColors[Math.floor(Math.random() * confettiColors.length)],
-                    size: Math.random() * 8 + 4, speedY: Math.random() * 5 + 3,
-                    speedX: Math.random() * 4 - 2, rotation: Math.random() * 360
-                });
-            }
-            animateConfetti();
-        }
-
-        function animateConfetti() {
-            if (confetti.length === 0) { ctx.clearRect(0,0,canvas.width,canvas.height); return; }
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            confetti.forEach((p, index) => {
-                p.y += p.speedY; p.x += p.speedX; p.rotation += 5;
-                ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.rotation * Math.PI / 180);
-                ctx.fillStyle = p.color; ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size); ctx.restore();
-                if (p.y > canvas.height) confetti.splice(index, 1);
-            });
-            requestAnimationFrame(animateConfetti);
-        }
-
-        /* --- Audio Synth --- */
-        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        function beep(freq = 600, duration = 100, type='sine') {
-            if(audioCtx.state === 'suspended') audioCtx.resume();
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.frequency.value = freq; osc.type = type;
-            gain.gain.value = 0.1;
-            osc.connect(gain); gain.connect(audioCtx.destination);
-            osc.start(); setTimeout(() => osc.stop(), duration);
-        }
-
-        /* --- Game Data --- */
+        // המערך הזה קריטי - הוא הסדר האמיתי של המספרים על הגלגל (בכיוון השעון)
         const wheelNumbers = [0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26];
         const redNumbers = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
         
-        let balance = parseFloat(localStorage.getItem('roulette_balance')) || 1000.00;
-        let numFrequencies = JSON.parse(localStorage.getItem('roulette_freq')) || Array(37).fill(0);
-        let historyResults = [];
-        
-        let bets = {}; 
-        let currentTotalBet = 0.00;
+        let balance = parseFloat(localStorage.getItem('maor_pro_fix_v2')) || 1000;
+        let bets = {};
+        let currentBet = 0;
         let actionStack = [];
-        let lastRoundBets = {};
-
-        let selectedChipValue = 1;
-        let isSpinning = false;
-        let currentWheelRotation = 0; 
-        let currentBallRotation = 0;
-
-        /* --- Initialization --- */
-        const wheel = document.getElementById('wheel');
-        const bettingTable = document.getElementById('bettingTable');
+        let history = [];
         
+        let chipValue = 1;
+        let isSpinning = false;
+        let isTurbo = false;
+        let currentRot = 0;
+
         function init() {
             buildWheel();
-            buildTableNumbers();
+            buildSmartTable();
             updateUI();
-            updateStatsDisplay();
-            checkBankrupt();
         }
 
-        function getColor(num) {
-            if (num === 0) return 'green';
-            return redNumbers.includes(num) ? 'red' : 'black';
-        }
+        function getColor(n) { if(n===0) return 'green'; return redNumbers.includes(n)?'red':'black'; }
 
         function buildWheel() {
-            const segmentAngle = 360 / wheelNumbers.length; 
-            let gradientStr = '';
-            wheelNumbers.forEach((num, index) => {
-                const color = getColor(num);
-                const hex = (color === 'green') ? '#27ae60' : (color === 'red' ? '#c0392b' : '#111');
-                const start = index * segmentAngle;
-                const end = (index + 1) * segmentAngle;
-                gradientStr += `${hex} ${start}deg ${end}deg,`;
-                
-                const numDiv = document.createElement('div');
-                numDiv.style.position = 'absolute'; numDiv.style.top = '0'; numDiv.style.left = '50%';
-                numDiv.style.height = '50%'; numDiv.style.width = '20px';
-                numDiv.style.transformOrigin = 'bottom center';
-                numDiv.style.transform = `translateX(-50%) rotate(${start + segmentAngle/2}deg)`;
-                
-                const span = document.createElement('span');
-                span.innerText = num; span.style.color = 'white'; span.style.fontSize = '12px'; span.style.fontWeight = 'bold';
-                span.style.marginTop = '8px'; span.style.display = 'block';
-                numDiv.appendChild(span); wheel.appendChild(numDiv);
-            });
-            wheel.style.background = `conic-gradient(${gradientStr.slice(0, -1)})`;
-        }
-
-        function buildTableNumbers() {
-            for (let col = 1; col <= 12; col++) {
-                let topNum = col * 3; createNumCell(topNum, col + 1, 1);
-                let midNum = col * 3 - 1; createNumCell(midNum, col + 1, 2);
-                let botNum = col * 3 - 2; createNumCell(botNum, col + 1, 3);
-            }
-        }
-
-        function createNumCell(num, c, r) {
-            const cell = document.createElement('div');
-            const colorClass = redNumbers.includes(num) ? 'bg-red' : 'bg-black';
-            cell.className = `b-cell ${colorClass}`;
-            cell.innerText = num;
-            cell.style.gridColumn = c; cell.style.gridRow = r;
-            cell.dataset.bet = num.toString();
-            cell.onclick = () => placeBet(num.toString());
-            bettingTable.appendChild(cell);
-        }
-
-        /* --- Betting Logic --- */
-        function selectChip(val) {
-            beep(800, 30);
-            selectedChipValue = val;
-            document.querySelectorAll('.chip-btn').forEach(btn => {
-                btn.classList.remove('active');
-                if (parseFloat(btn.innerText) === val) btn.classList.add('active');
-            });
-        }
-
-        function placeBet(type, customAmount = null) {
-            if (isSpinning) return;
-            const amount = customAmount || selectedChipValue;
+            const wheel = document.getElementById('wheel');
+            const seg = 360 / 37;
+            let grad = '';
             
-            if (currentTotalBet + amount > balance + 0.001) {
-                alert("אין מספיק כסף בקופה!"); return;
+            // בניית הגלגל ויזואלית
+            wheelNumbers.forEach((n, i) => {
+                const c = getColor(n);
+                const color = c==='green'?'#27ae60':(c==='red'?'#c0392b':'#111');
+                grad += `${color} ${i*seg}deg ${(i+1)*seg}deg,`;
+                
+                const d = document.createElement('div');
+                d.style.position='absolute'; d.style.top='0'; d.style.left='50%';
+                d.style.height='50%'; d.style.width='20px'; d.style.transformOrigin='bottom center';
+                
+                // חשוב: ממקמים את המספר באמצע הגזרה
+                d.style.transform = `translateX(-50%) rotate(${i*seg + seg/2}deg)`;
+                
+                d.innerHTML = `<span style="display:block; margin-top:4px; color:white; font-size:8px; font-weight:bold">${n}</span>`;
+                wheel.appendChild(d);
+            });
+            wheel.style.background = `conic-gradient(${grad.slice(0,-1)})`;
+        }
+
+        function buildSmartTable() {
+            const t = document.getElementById('smartTable');
+            for(let r=1; r<=12; r++) {
+                const n1 = r*3 - 2; // 1
+                const n2 = r*3 - 1; // 2
+                const n3 = r*3;     // 3
+
+                t.appendChild(createNum(n1));
+                t.appendChild(createSplitV(n1, n2));
+                t.appendChild(createNum(n2));
+                t.appendChild(createSplitV(n2, n3));
+                t.appendChild(createNum(n3));
+
+                if(r < 12) {
+                    const nextN1 = n1+3;
+                    const nextN2 = n2+3;
+                    const nextN3 = n3+3;
+                    t.appendChild(createSplitH(n1, nextN1));
+                    t.appendChild(createCorner(n1, n2, nextN1, nextN2));
+                    t.appendChild(createSplitH(n2, nextN2));
+                    t.appendChild(createCorner(n2, n3, nextN2, nextN3));
+                    t.appendChild(createSplitH(n3, nextN3));
+                }
             }
 
-            if (!customAmount) beep(400, 30); // sound only for manual clicks
+            const br = document.createElement('div'); br.className = 'spacer-row'; t.appendChild(br);
+
+            const grp1 = document.createElement('div'); grp1.className = 'row-bet-group';
+            grp1.appendChild(createSpecial("2 to 1", "col1")); 
+            grp1.appendChild(createSpecial("2 to 1", "col2")); 
+            grp1.appendChild(createSpecial("2 to 1", "col3"));
+            t.appendChild(grp1);
+
+            const grp2 = document.createElement('div'); grp2.className = 'row-bet-group';
+            grp2.appendChild(createSpecial("1st 12", "1st12"));
+            grp2.appendChild(createSpecial("2nd 12", "2nd12"));
+            grp2.appendChild(createSpecial("3rd 12", "3rd12"));
+            t.appendChild(grp2);
+
+            const grp3 = document.createElement('div'); grp3.className = 'row-bet-group';
+            grp3.appendChild(createSpecial("1-18", "1-18"));
+            grp3.appendChild(createSpecial("EVEN", "even"));
+            grp3.appendChild(createSpecial("RED", "red", "bg-red"));
+            t.appendChild(grp3);
+
+            const grp4 = document.createElement('div'); grp4.className = 'row-bet-group';
+            grp4.appendChild(createSpecial("BLACK", "black", "bg-blk"));
+            grp4.appendChild(createSpecial("ODD", "odd"));
+            grp4.appendChild(createSpecial("19-36", "19-36"));
+            t.appendChild(grp4);
+        }
+
+        function createNum(n) {
+            const el = document.createElement('div');
+            const bg = redNumbers.includes(n) ? 'bg-red' : 'bg-blk';
+            el.className = `cell ${bg}`;
+            el.innerText = n;
+            el.id = `cell-${n}`;
+            el.dataset.bet = n;
+            el.onclick = () => placeBet(n.toString());
+            return el;
+        }
+
+        function createSplitV(n1, n2) {
+            const el = document.createElement('div');
+            el.className = 'split-v';
+            el.dataset.bet = `split-${n1}-${n2}`;
+            el.onclick = () => placeBet(`split-${n1}-${n2}`);
+            return el;
+        }
+
+        function createSplitH(n1, n2) {
+            const el = document.createElement('div');
+            el.className = 'split-h';
+            el.dataset.bet = `split-${n1}-${n2}`;
+            el.onclick = () => placeBet(`split-${n1}-${n2}`);
+            return el;
+        }
+
+        function createCorner(n1, n2, n3, n4) {
+            const el = document.createElement('div');
+            el.className = 'corner';
+            el.dataset.bet = `corner-${n1}-${n2}-${n3}-${n4}`;
+            el.onclick = () => placeBet(`corner-${n1}-${n2}-${n3}-${n4}`);
+            return el;
+        }
+
+        function createSpecial(text, key, bgClass='bg-spec') {
+            const el = document.createElement('div');
+            el.className = `cell ${bgClass}`; el.innerText = text; el.dataset.bet = key;
+            el.onclick = () => placeBet(key);
+            return el;
+        }
+
+        function selectChip(v) {
+            chipValue = v;
+            document.querySelectorAll('.chip').forEach(c => {
+                c.classList.remove('active');
+                if(parseInt(c.innerText) === v) c.classList.add('active');
+            });
+            navigator.vibrate(20);
+        }
+
+        function placeBet(type) {
+            if(isSpinning) return;
+            if(balance < chipValue) { showToast("חסר כסף!"); return; }
+
+            balance -= chipValue;
+            currentBet += chipValue;
             
-            currentTotalBet += amount;
-            if (!bets[type]) bets[type] = 0;
-            bets[type] += amount;
+            if(!bets[type]) bets[type]=0;
+            bets[type] += chipValue;
             
-            actionStack.push({ type: type, amount: amount });
+            actionStack.push({type, val:chipValue});
+            
+            navigator.vibrate(30);
             updateUI(); renderChips();
         }
 
-        /* --- Special Features --- */
-        function betNeighbors() {
-            // Bet on the last winning number and its neighbors
-            if (historyResults.length === 0) {
-                alert("אין היסטוריה עדיין. סובב פעם אחת כדי להשתמש בזה."); return;
-            }
-            const lastNum = historyResults[0];
-            const idx = wheelNumbers.indexOf(lastNum);
-            
-            // Logic for neighbors (loop around array)
-            const prevIdx = (idx - 1 + wheelNumbers.length) % wheelNumbers.length;
-            const nextIdx = (idx + 1) % wheelNumbers.length;
-            
-            const neighbors = [wheelNumbers[prevIdx], lastNum, wheelNumbers[nextIdx]];
-            
-            // Place bets
-            neighbors.forEach(n => placeBet(n.toString(), selectedChipValue));
-            beep(600, 100);
-        }
-
-        function checkBankrupt() {
-            if (balance < 10 && currentTotalBet === 0 && !isSpinning) {
-                document.getElementById('bankruptModal').style.display = 'flex';
-                beep(200, 300, 'sawtooth');
-            }
-        }
-
-        function rescueFunds() {
-            balance += 500;
-            localStorage.setItem('roulette_balance', balance.toFixed(2));
-            document.getElementById('bankruptModal').style.display = 'none';
-            updateUI();
-            beep(1000, 100); beep(1200, 100);
-            createConfetti();
-        }
-
-        function updateStatsDisplay() {
-            // Create array of objects {num, count}
-            let freqArr = numFrequencies.map((count, num) => ({ num, count }));
-            // Sort Descending
-            freqArr.sort((a, b) => b.count - a.count);
-            
-            const hotDiv = document.getElementById('hotList');
-            const coldDiv = document.getElementById('coldList');
-            
-            // Top 3 Hot
-            let hotHTML = '';
-            for(let i=0; i<3; i++) {
-                if(freqArr[i].count > 0) {
-                    const n = freqArr[i].num;
-                    const color = getColor(n) === 'red' ? '#c0392b' : (getColor(n)==='black'?'#2c3e50':'#27ae60');
-                    hotHTML += `<div class="stat-num-circle" style="background:${color}">${n}</div>`;
-                }
-            }
-            hotDiv.innerHTML = hotHTML || '<span style="color:#666; font-size:0.8rem">אין נתונים</span>';
-
-            // Top 3 Cold (Filter those with 0 or low count, taking from end of sorted array)
-            let coldHTML = '';
-            // We look at the end of the array. If game is new, all are 0.
-            // Show indexes from end
-            for(let i=freqArr.length-1; i >= freqArr.length-3; i--) {
-                const n = freqArr[i].num;
-                // Only show if we actually have some data in the game (sum of counts > 5) to make sense
-                const totalSpins = numFrequencies.reduce((a,b)=>a+b,0);
-                if (totalSpins > 0) {
-                    const color = getColor(n) === 'red' ? '#c0392b' : (getColor(n)==='black'?'#2c3e50':'#27ae60');
-                    coldHTML += `<div class="stat-num-circle" style="background:${color}">${n}</div>`;
-                }
-            }
-            coldDiv.innerHTML = coldHTML || '<span style="color:#666; font-size:0.8rem">אין נתונים</span>';
-        }
-
-        /* --- Standard Controls --- */
         function undoBet() {
-            if (isSpinning || actionStack.length === 0) return;
-            const last = actionStack.pop();
-            currentTotalBet -= last.amount;
-            bets[last.type] -= last.amount;
-            if (bets[last.type] <= 0.001) delete bets[last.type];
-            beep(300, 50); updateUI(); renderChips();
-        }
-
-        function doubleBet() {
-            if (isSpinning || currentTotalBet === 0) return;
-            if (currentTotalBet * 2 > balance + 0.001) { alert("אין מספיק כסף להכפיל"); return; }
-            for (const [t, a] of Object.entries(bets)) {
-                bets[t] += a;
-                actionStack.push({ type: t, amount: a });
-            }
-            currentTotalBet *= 2; beep(600, 50); updateUI(); renderChips();
-        }
-
-        function rebet() {
-            if (isSpinning || Object.keys(lastRoundBets).length === 0) return;
-            clearBets();
-            let total = 0;
-            for (const amt of Object.values(lastRoundBets)) total += amt;
-            if (total > balance) { alert("אין מספיק כסף ל-Rebet"); return; }
-            
-            bets = { ...lastRoundBets };
-            currentTotalBet = total;
-            // Fake stack for undo consistency
-            actionStack = [];
-            for (const [t, a] of Object.entries(bets)) actionStack.push({type:t, amount:a});
-            
-            updateUI(); renderChips(); beep(600, 50);
+            if(isSpinning || !actionStack.length) return;
+            const act = actionStack.pop();
+            balance += act.val;
+            currentBet -= act.val;
+            bets[act.type] -= act.val;
+            if(bets[act.type]<=0) delete bets[act.type];
+            updateUI(); renderChips();
         }
 
         function clearBets() {
-            if (isSpinning) return;
-            currentTotalBet = 0; bets = {}; actionStack = [];
+            if(isSpinning) return;
+            balance += currentBet;
+            currentBet=0; bets={}; actionStack=[];
             updateUI(); renderChips();
         }
 
         function renderChips() {
-            document.querySelectorAll('.chip-on-board').forEach(el => el.remove());
-            for (const [key, amount] of Object.entries(bets)) {
-                if (amount > 0) {
-                    const cell = document.querySelector(`[data-bet="${key}"]`);
-                    if (cell) {
-                        const chip = document.createElement('div');
-                        chip.className = 'chip-on-board';
-                        chip.innerText = amount % 1 === 0 ? amount : amount.toFixed(1);
-                        // Add height effect for larger stacks
-                        if (amount >= 50) chip.style.boxShadow = "0 6px 5px rgba(0,0,0,0.6), inset 0 0 5px rgba(255,255,255,0.5)";
-                        cell.appendChild(chip);
+            document.querySelectorAll('.chip-on-board').forEach(e=>e.remove());
+            for(const [k, v] of Object.entries(bets)) {
+                if(v > 0) {
+                    let el = null;
+                    if(!isNaN(k)) el = document.getElementById(`cell-${k}`);
+                    if(!el) el = document.querySelector(`[data-bet="${k}"]`);
+                    
+                    if(el) {
+                        const c = document.createElement('div');
+                        c.className = 'chip-on-board'; 
+                        c.innerText = v >= 1000 ? (v/1000).toFixed(1)+'k' : v;
+                        el.appendChild(c);
                     }
                 }
             }
         }
 
-        function updateUI() {
-            const displayBal = balance - currentTotalBet;
-            document.getElementById('balanceDisplay').innerText = displayBal.toFixed(2) + "$";
-            document.getElementById('currentBetDisplay').innerText = currentTotalBet.toFixed(2) + "$";
-            localStorage.setItem('roulette_balance', balance.toFixed(2));
-        }
-
-        /* --- Spin Logic --- */
         function spin() {
-            if (currentTotalBet === 0) {
-                const msg = document.getElementById('messageBox');
-                msg.innerText = "שים הימור!"; msg.style.color = "orange"; return;
-            }
+            if(currentBet === 0) { showToast("שים הימור!"); return; }
             
-            lastRoundBets = { ...bets };
-            balance -= currentTotalBet;
+            document.body.classList.add('is-spinning');
+            document.getElementById('scrollContainer').scrollTo({top:0, behavior:'smooth'});
             
             isSpinning = true;
             document.getElementById('spinBtn').disabled = true;
-            document.getElementById('clearBtn').disabled = true;
-            document.getElementById('messageBox').innerText = "בהצלחה...";
-            document.getElementById('messageBox').style.color = "white";
 
-            const winningIndex = Math.floor(Math.random() * wheelNumbers.length);
-            const winningNum = wheelNumbers[winningIndex];
-
-            // Animation Math
-            const segmentAngle = 360 / wheelNumbers.length;
-            const numAngle = (winningIndex * segmentAngle) + (segmentAngle / 2);
-            const spins = 5; 
-            const cycle = Math.floor(currentWheelRotation / 360) * 360;
-            let target = cycle - (spins * 360) - numAngle;
-            if (target > currentWheelRotation) target -= 360 * spins;
+            const winIdx = Math.floor(Math.random()*wheelNumbers.length);
+            const winNum = wheelNumbers[winIdx];
             
-            const ballSpins = 3;
-            let ballTarget = Math.ceil((currentBallRotation + (360 * ballSpins))/360)*360;
+            // חישוב זווית מדויק - כדי שהמשולש יהיה על המספר הזוכה
+            const seg = 360 / 37;
+            
+            // המיקום הנוכחי של המספר על הגלגל (ביחס להתחלה 0)
+            const numAngle = (winIdx * seg) + (seg / 2);
+            
+            // אנחנו צריכים לסובב את הגלגל כך ש-numAngle יגיע ל-0 מעלות (למעלה)
+            // מכיוון שהגלגל מסתובב עם כיוון השעון, אנחנו מוסיפים זוויות.
+            // זווית יעד = (סיבובים שלמים) + (360 - המיקום הנוכחי של המספר)
+            
+            // נוסיף אקראיות קטנה בתוך הגזרה כדי שזה יראה ריאליסטי (אבל עדיין בתוך המספר)
+            const jitter = (Math.random() * seg * 0.8) - (seg * 0.4); 
 
-            wheel.style.transform = `rotate(${target}deg)`;
-            document.getElementById('ballContainer').style.transform = `rotate(${ballTarget}deg)`;
+            // חישוב הסיבוב הנדרש
+            // נניח אנחנו ב-currentRot. נוסיף 5 סיבובים.
+            // המטרה היא להגיע לזווית שבה ה-Marker (למעלה) מצביע על winIdx.
+            // זה אומר שהגלגל צריך להיות מסובב ב: -(winIdx * seg + seg/2)
+            
+            const targetRotation = -(winIdx * seg + seg / 2 + jitter);
+            
+            // כדי לשמור על רצף סיבוב, נוסיף כפולות של 360
+            const spins = 5;
+            const finalRot = currentRot - (360 * spins) + (targetRotation - (currentRot % 360));
+            // תיקון כדי לוודא שאנחנו תמיד מסתובבים לאותו כיוון (שלילי במקרה הזה)
+            const actualRot = currentRot - (360 * 5) - ( (currentRot % 360) - targetRotation );
 
-            currentWheelRotation = target;
-            currentBallRotation = ballTarget;
+
+            const wEl = document.getElementById('wheel');
+            const bEl = document.getElementById('ballContainer');
+            const time = isTurbo ? '1s' : '4s';
+
+            wEl.style.transition = `transform ${time} cubic-bezier(0.1, 0.7, 0.1, 1)`;
+            bEl.style.transition = `transform ${time} cubic-bezier(0.1, 0.7, 0.1, 1)`;
+            
+            // טריק: נסובב את הגלגל לנקודה
+            // ונסובב את הכדור בדיוק לאותה זווית כדי שייראה כאילו הוא "נח" בחריץ
+            
+            // חישוב פשוט יותר שעובד תמיד:
+            const stopAngle = (360 * 5) + (360 - (winIdx * seg) - (seg/2));
+            const totalRot = currentRot + stopAngle;
+            
+            // נשתמש בחישוב המדויק:
+            // רוצים להגיע ל: -((winIdx * seg) + (seg/2))
+            const nextRotation = currentRot - (360 * 5) - ((winIdx * seg + seg/2) + currentRot%360);
+            
+            // נחזור לפשוט והבטוח:
+            // אנחנו רוצים שהאינדקס winIdx יהיה ב-0 מעלות (למעלה).
+            // זה קורה כשהגלגל מסובב ב: - (winIdx * seg + seg/2)
+            
+            const finalAngle = -( (winIdx * seg) + (seg/2) );
+            // מוסיפים סיבובים שלמים למצב הנוכחי כדי להגיע לשם חלק
+            const delta = finalAngle - (currentRot % 360);
+            const realTarget = currentRot + delta - (360 * 5); // מסתובב נגד כיוון השעון (מספרים זזים ימינה)
+
+            wEl.style.transform = `rotate(${realTarget}deg)`;
+            
+            // הכדור מסתובב יחד עם הגלגל (אותו transform)
+            bEl.style.transform = `rotate(${realTarget}deg)`;
+            
+            currentRot = realTarget;
 
             setTimeout(() => {
                 isSpinning = false;
+                document.body.classList.remove('is-spinning');
                 document.getElementById('spinBtn').disabled = false;
-                document.getElementById('clearBtn').disabled = false;
-                resolveBet(winningNum);
-            }, 4000);
+                resolve(winNum);
+            }, isTurbo?1000:4000);
         }
 
-        function resolveBet(num) {
+        function resolve(num) {
             let win = 0;
             const color = getColor(num);
-
-            // Update Frequencies
-            numFrequencies[num]++;
-            localStorage.setItem('roulette_freq', JSON.stringify(numFrequencies));
-            updateStatsDisplay();
-
-            // Update History
-            historyResults.unshift(num);
-            if (historyResults.length > 10) historyResults.pop();
             
-            // Render History
-            const histBar = document.getElementById('historyBar');
-            while(histBar.children.length > 1) histBar.removeChild(histBar.lastChild);
-            historyResults.forEach(n => {
-                const b = document.createElement('div'); b.className = 'hist-bubble';
-                const c = getColor(n);
-                b.innerText = n;
-                b.style.backgroundColor = c==='red'?'#c0392b':(c==='black'?'#2c3e50':'#27ae60');
-                histBar.appendChild(b);
-            });
+            history.unshift(num);
+            if(history.length>10) history.pop();
+            renderHistory();
 
-            // Calculate Win
-            for (const [type, amt] of Object.entries(bets)) {
-                let mult = 0;
-                if (type === num.toString()) mult = 36;
-                else if (type === 'red' && color === 'red') mult = 2;
-                else if (type === 'black' && color === 'black') mult = 2;
-                else if (num !== 0) {
-                    if (type === 'even' && num%2===0) mult = 2;
-                    if (type === 'odd' && num%2!==0) mult = 2;
-                    if (type === '1-18' && num<=18) mult = 2;
-                    if (type === '19-36' && num>=19) mult = 2;
-                    if (type === '1st12' && num<=12) mult = 3;
-                    if (type === '2nd12' && num>12 && num<=24) mult = 3;
-                    if (type === '3rd12' && num>24) mult = 3;
-                    if (type === 'col3' && num%3===0) mult = 3;
-                    if (type === 'col2' && num%3===2) mult = 3;
-                    if (type === 'col1' && num%3===1) mult = 3;
+            let winningCell = document.getElementById(`cell-${num}`);
+            if(num === 0) winningCell = document.querySelector('.cell-0');
+
+            if(winningCell) {
+                winningCell.scrollIntoView({behavior: "smooth", block: "center"});
+                winningCell.classList.add('winner-highlight');
+                setTimeout(() => winningCell.classList.remove('winner-highlight'), 3500);
+            }
+
+            for(const [k, v] of Object.entries(bets)) {
+                let m = 0;
+                if(k === num.toString()) m = 36;
+                else if(k.startsWith('split')) {
+                    const nums = k.split('-').slice(1).map(Number);
+                    if(nums.includes(num)) m = 18;
                 }
-                if (mult > 0) win += amt * mult;
+                else if(k.startsWith('corner')) {
+                    const nums = k.split('-').slice(1).map(Number);
+                    if(nums.includes(num)) m = 9;
+                }
+                else if(k==='red' && color==='red') m=2;
+                else if(k==='black' && color==='black') m=2;
+                else if(num!==0) {
+                    if(k==='even' && num%2===0) m=2;
+                    if(k==='odd' && num%2!==0) m=2;
+                    if(k==='1-18' && num<=18) m=2;
+                    if(k==='19-36' && num>=19) m=2;
+                    if(k==='1st12' && num<=12) m=3;
+                    if(k==='2nd12' && num>12 && num<=24) m=3;
+                    if(k==='3rd12' && num>24) m=3;
+                    if(k==='col1' && num%3===1) m=3;
+                    if(k==='col2' && num%3===2) m=3;
+                    if(k==='col3' && num%3===0) m=3;
+                }
+                win += v*m;
             }
 
             balance += win;
-            if (win > 0) {
-                const totalWonEl = document.getElementById('totalWonDisplay');
-                // Parse current displayed won, add new win
-                let currentWon = parseFloat(totalWonEl.innerText);
-                totalWonEl.innerText = (currentWon + win).toFixed(2) + "$";
-            }
-
-            currentTotalBet = 0; bets = {}; actionStack = [];
-            renderChips(); updateUI();
-            
-            const msgBox = document.getElementById('messageBox');
-            let msg = `המספר: ${num}`;
-            msg += color==='red' ? " (אדום)" : (color==='black'?" (שחור)":" (ירוק)");
-            
-            if (win > 0) {
-                msgBox.innerHTML = `${msg}<br><span class="win-text">זכית ב-${win.toFixed(2)}$!</span>`;
-                beep(600, 100); setTimeout(()=>beep(800,200),150);
-                createConfetti();
+            if(win > 0) {
+                showToast(`זכית ב-${win}$! 🎉`);
+                fireConfetti();
+                const wd = document.getElementById('winDisplay');
+                wd.innerText = `+${win}`;
+                setTimeout(()=>wd.innerText='', 3000);
             } else {
-                msgBox.innerHTML = `${msg}<br><span style="color:#e74c3c">לא זכית הפעם</span>`;
+                showToast(`יצא ${num}`);
             }
 
-            checkBankrupt();
+            currentBet = 0; bets = {}; actionStack = []; renderChips(); updateUI();
+            if(balance < 1) setTimeout(()=>document.getElementById('bankruptModal').style.display = 'flex', 1500);
         }
 
-        // Init Game
-        init();
-        window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });
+        function updateUI() {
+            document.getElementById('balanceDisplay').innerText = balance;
+            document.getElementById('betDisplay').innerText = currentBet;
+            localStorage.setItem('maor_pro_fix_v2', balance);
+        }
 
+        function renderHistory() {
+            const h = document.getElementById('historyStrip');
+            h.innerHTML = '';
+            history.forEach(n => {
+                const d = document.createElement('div');
+                d.className = 'hist-dot'; d.innerText=n;
+                const c = getColor(n);
+                d.style.backgroundColor = c==='red'?'var(--primary)':(c==='black'?'#2c3e50':'var(--green)');
+                h.appendChild(d);
+            });
+        }
+
+        function addMoney() { balance += 1000; updateUI(); showToast("הוספת 1000$"); }
+        function rescueFunds() { balance += 1000; updateUI(); document.getElementById('bankruptModal').style.display='none'; }
+        function toggleTurbo() { isTurbo = !isTurbo; showToast(isTurbo?"טורבו: פעיל":"טורבו: כבוי"); }
+        function showToast(txt) {
+            const t = document.getElementById('toast');
+            t.innerText = txt; t.style.opacity = 1;
+            setTimeout(()=>t.style.opacity=0, 2000);
+        }
+
+        const cvs = document.getElementById('confetti-canvas');
+        const ctx = cvs.getContext('2d');
+        cvs.width = window.innerWidth; cvs.height = window.innerHeight;
+        let confetti = [];
+        function fireConfetti() {
+            for(let i=0; i<100; i++) confetti.push({
+                x:Math.random()*cvs.width, y:Math.random()*cvs.height-cvs.height,
+                c:['#f1c40f','#e74c3c','#3498db'][Math.floor(Math.random()*3)],
+                s:Math.random()*5+3, dx:Math.random()*4-2, dy:Math.random()*5+3
+            });
+            loopConfetti();
+        }
+        function loopConfetti() {
+            if(!confetti.length) { ctx.clearRect(0,0,cvs.width,cvs.height); return; }
+            ctx.clearRect(0,0,cvs.width,cvs.height);
+            confetti.forEach((p,i)=>{
+                p.y+=p.dy; p.x+=p.dx; ctx.fillStyle=p.c; ctx.fillRect(p.x,p.y,p.s,p.s);
+                if(p.y>cvs.height) confetti.splice(i,1);
+            });
+            requestAnimationFrame(loopConfetti);
+        }
+
+        init();
     </script>
 </body>
 </html>
