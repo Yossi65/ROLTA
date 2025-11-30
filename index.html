@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>רולטה ישראלית מתוקנת</title>
+    <style>
+        :root {
+            --wheel-size: 320px;
+            --wheel-border: 12px;
+            --ball-size: 14px;
+            --plate-color: #2c3e50;
+            --gold: #f1c40f;
+            --text-color: #ecf0f1;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #202020;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            color: var(--gold);
+            text-shadow: 0 0 10px rgba(241, 196, 15, 0.5);
+        }
+
+        .game-container {
+            position: relative;
+            width: var(--wheel-size);
+            height: var(--wheel-size);
+            border-radius: 50%;
+            border: var(--wheel-border) solid #4a2c2c;
+            box-shadow: 0 0 20px rgba(0,0,0,0.8), inset 0 0 20px rgba(0,0,0,0.5);
+            background: var(--plate-color);
+        }
+
+        .wheel {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            position: relative;
+            transition: transform 5s cubic-bezier(0.15, 0.70, 0.10, 1.0); /* אנימציה חלקה */
+            overflow: hidden;
+        }
+
+        /* הטבעת המרכזית */
+        .center-hub {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 45px;
+            height: 45px;
+            background: radial-gradient(circle at 30% 30%, var(--gold), #b8860b);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 5px black;
+            z-index: 10;
+        }
+
+        /* הכדור */
+        .ball-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 5;
+            transition: transform 5s cubic-bezier(0.15, 0.70, 0.10, 1.0);
+        }
+
+        .ball {
+            position: absolute;
+            top: 25px; 
+            left: 50%;
+            width: var(--ball-size);
+            height: var(--ball-size);
+            background: radial-gradient(circle at 30% 30%, #fff, #999);
+            border-radius: 50%;
+            transform: translateX(-50%);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+
+        /* משולש סימון */
+        .marker {
+            position: absolute;
+            top: -18px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0; 
+            height: 0; 
+            border-left: 12px solid transparent;
+            border-right: 12px solid transparent;
+            border-top: 24px solid var(--gold);
+            z-index: 20;
+            filter: drop-shadow(0 2px 2px rgba(0,0,0,0.5));
+        }
+
+        .controls {
+            margin-top: 40px;
+            text-align: center;
+        }
+
+        button {
+            background: linear-gradient(to bottom, #e74c3c, #c0392b);
+            border: none;
+            padding: 12px 30px;
+            color: white;
+            font-size: 1.2rem;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 4px 0 #96281b;
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+
+        button:active {
+            transform: translateY(4px);
+            box-shadow: 0 0 0 #96281b;
+        }
+
+        button:disabled {
+            background: #7f8c8d;
+            box-shadow: none;
+            cursor: not-allowed;
+            transform: translateY(4px);
+        }
+
+        .result-box {
+            margin-top: 20px;
+            min-height: 50px;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        
+        .result-number {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 5px;
+            min-width: 40px;
+        }
+        .res-red { background-color: #e74c3c; }
+        .res-black { background-color: #2c3e50; border: 1px solid white; }
+        .res-green { background-color: #27ae60; }
+
+    </style>
+</head>
+<body>
+
+    <h1>רולטה ישראלית</h1>
+
+    <div class="game-container">
+        <div class="marker"></div>
+        <div class="wheel" id="wheel"></div>
+        <div class="center-hub"></div>
+        <div class="ball-container" id="ballContainer">
+            <div class="ball"></div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button id="spinBtn" onclick="spin()">סובב את הגלגל!</button>
+        <div class="result-box" id="result">
+            לחץ על הכפתור כדי להתחיל
+        </div>
+    </div>
+
+    <script>
+        // מערך המספרים לפי הסדר בגלגל (בכיוון השעון)
+        const wheelNumbers = [
+            0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13, 36, 11, 30, 8, 23, 10, 
+            5, 24, 16, 33, 1, 20, 14, 31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26
+        ];
+
+        // המספרים האדומים ברולטה אירופאית
+        const redNumbers = [1, 3, 5, 7, 9, 12, 14, 16, 18, 19, 21, 23, 25, 27, 30, 32, 34, 36];
+
+        function getColor(num) {
+            if (num === 0) return 'green';
+            return redNumbers.includes(num) ? 'red' : 'black';
+        }
+
+        const wheel = document.getElementById('wheel');
+        const ballContainer = document.getElementById('ballContainer');
+        const resultDiv = document.getElementById('result');
+        const spinBtn = document.getElementById('spinBtn');
+        
+        // זווית של משבצת אחת (360 חלקי 37 מספרים) = בערך 9.72 מעלות
+        const segmentAngle = 360 / wheelNumbers.length; 
+
+        // בניית הגלגל (רקע ומספרים)
+        let gradientStr = '';
+        wheelNumbers.forEach((num, index) => {
+            const colorName = getColor(num);
+            const colorHex = (colorName === 'green') ? '#27ae60' : (colorName === 'red' ? '#c0392b' : '#111');
+            
+            // יצירת הגוון (Slice) ברקע
+            const startDeg = index * segmentAngle;
+            const endDeg = (index + 1) * segmentAngle;
+            gradientStr += `${colorHex} ${startDeg}deg ${endDeg}deg,`;
+
+            // הוספת המספר
+            const numDiv = document.createElement('div');
+            numDiv.style.position = 'absolute';
+            numDiv.style.top = '0';
+            numDiv.style.left = '50%';
+            numDiv.style.height = '50%';
+            numDiv.style.width = '20px';
+            numDiv.style.transformOrigin = 'bottom center';
+            
+            // חישוב המיקום: תחילת הגזרה + חצי גזרה כדי למרכז את הטקסט
+            const rotation = startDeg + (segmentAngle / 2);
+            numDiv.style.transform = `translateX(-50%) rotate(${rotation}deg)`;
+            numDiv.style.zIndex = '2';
+            
+            const textSpan = document.createElement('span');
+            textSpan.innerText = num;
+            textSpan.style.display = 'block';
+            textSpan.style.color = 'white';
+            textSpan.style.fontSize = '14px';
+            textSpan.style.fontWeight = 'bold';
+            textSpan.style.marginTop = '10px'; // מרחק מהקצה העליון
+            
+            numDiv.appendChild(textSpan);
+            wheel.appendChild(numDiv);
+        });
+        
+        gradientStr = gradientStr.slice(0, -1);
+        wheel.style.background = `conic-gradient(${gradientStr})`;
+
+        // משתנים לשמירת הסיבוב המצטבר (כדי שהגלגל לא "יקפוץ" אחורה)
+        let currentWheelRotation = 0;
+        let currentBallRotation = 0;
+
+        function spin() {
+            spinBtn.disabled = true;
+            resultDiv.innerHTML = 'הגלגל מסתובב...';
+
+            // 1. הגרלת מספר זוכה
+            const winningIndex = Math.floor(Math.random() * wheelNumbers.length);
+            const winningNumber = wheelNumbers[winningIndex];
+
+            // 2. חישוב הזווית הנדרשת כדי שהמספר יגיע למעלה (0 מעלות)
+            // המיקום הנוכחי של המספר בגלגל (ביחס ל-0) הוא:
+            const numberCurrentAngle = (winningIndex * segmentAngle) + (segmentAngle / 2);
+
+            // כדי להביא את הזווית הזו ל-0, עלינו לסובב את הגלגל "אחורה" בזווית הזו בדיוק.
+            // הנוסחה: סיבוב חדש = -(מיקום_המספר) - (מספר סיבובים שלמים * 360)
+            
+            // נוסיף 5 סיבובים מלאים לאקשן
+            const spins = 5;
+            // נוודא שאנחנו תמיד מוסיפים לערך הקיים כדי להמשיך את התנועה באותו כיוון (נגד כיוון השעון במקרה זה, כדי שהמספרים יזוזו עם השעון)
+            // החישוב הזה מבטיח נחיתה בול על המספר:
+            const targetRotation = -(numberCurrentAngle) - (spins * 360);
+
+            // בגלל שאנחנו רוצים להמשיך מאיפה שעצרנו, צריך להתאים את זה לערך הנוכחי
+            // השיטה הכי בטוחה: לחשב את ההפרש מהמצב הנוכחי למצב הרצוי (מודולו 360) ואז להוסיף סיבובים.
+            
+            // אבל השיטה האבסולוטית פשוטה יותר: פשוט נקבע יעד חדש שהוא "לפחות" 5 סיבובים קדימה מהנוכחי
+            // נחשב לאן להגיע בסוף הסבב הנוכחי (ביחס ל-0 האבסולוטי של ההתחלה)
+            let newWheelRotation = currentWheelRotation - (360 * spins); 
+            // עכשיו נתקן את ה"שארית" כדי שזה ינחת על המספר
+            // ה-Rotation הנוכחי של הגלגל משפיע על איפה ה-0 נמצא.
+            // אנחנו רוצים ש: (FinalRotation + numberCurrentAngle) % 360 === 0
+            
+            // פתרון פשוט יותר שעובד תמיד:
+            // נחליט על יעד שהוא כפולה של 360 מינוס הזווית של המספר.
+            // עלינו למצוא את ה-K הקרוב ביותר כך ש: K*360 - numberCurrentAngle < currentWheelRotation
+            const cycle = Math.floor(currentWheelRotation / 360) * 360;
+            let finalTarget = cycle - (spins * 360) - numberCurrentAngle;
+            
+            // אם החישוב גורם לקפיצה גדולה מדי או קטנה מדי, נתקן
+            if (finalTarget > currentWheelRotation) {
+                finalTarget -= 360 * spins; 
+            }
+
+            // חישוב אנימציית הכדור (מסתובב הפוך לגלגל)
+            // הגלגל מסתובב בערךים שליליים (נגד כיוון השעון) -> נראה כאילו הוא מסתובב ימינה?
+            // לא, rotate שלילי ב-CSS זה נגד כיוון השעון.
+            // הכדור צריך להסתובב עם כיוון השעון (חיובי) ולהגיע ל-0 (למעלה) בסוף.
+            const ballSpins = 3;
+            let finalBallTarget = currentBallRotation + (360 * ballSpins);
+            // הכדור צריך לנחות ב-0 מעלות (למעלה) כי שם הגלגל יביא את המספר הזוכה.
+            // נעגל לכפולה של 360
+            finalBallTarget = Math.ceil(finalBallTarget / 360) * 360;
+
+            // עדכון ה-CSS
+            wheel.style.transform = `rotate(${finalTarget}deg)`;
+            ballContainer.style.transform = `rotate(${finalBallTarget}deg)`;
+
+            // שמירה לפעם הבאה
+            currentWheelRotation = finalTarget;
+            currentBallRotation = finalBallTarget;
+
+            // הצגת תוצאה בסוף האנימציה
+            setTimeout(() => {
+                spinBtn.disabled = false;
+                const color = getColor(winningNumber);
+                let colorClass = '';
+                let colorText = '';
+                
+                if (color === 'red') { colorClass = 'res-red'; colorText = 'אדום'; }
+                else if (color === 'black') { colorClass = 'res-black'; colorText = 'שחור'; }
+                else { colorClass = 'res-green'; colorText = 'ירוק'; }
+
+                resultDiv.innerHTML = `
+                    המספר הזוכה: 
+                    <span class="result-number ${colorClass}">${winningNumber}</span>
+                    <br><span style="font-size: 1rem;">(${colorText})</span>
+                `;
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
